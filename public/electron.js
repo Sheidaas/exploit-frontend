@@ -1,0 +1,111 @@
+const { app, BrowserWindow, ipcMain } = require('electron')
+const {PythonShell} = require('python-shell');
+const path = require('path')
+const { AppImageUpdater, MacUpdater, NsisUpdater } = require("electron-updater") 
+const DEBUG = !app.isPackaged
+if(!DEBUG){
+  const options = {
+    provider: 'github',
+    owner: 'MetinOpenBot',
+    repo: 'OpenBot'
+  }
+  
+  let app_updater = null
+  
+  if(process.platform === 'win32'){
+    app_updater = new NsisUpdater(options)
+  }else if(process.platform === 'linux'){
+    app_updater = new AppImageUpdater(options)
+  }else if(process.platform === 'darwin'){
+    app_updater = new MacUpdater(options)
+  }
+  app_updater.logger = require("electron-log")
+  app_updater.logger.transports.file.level = "info"
+  app_updater.autoDownload = false
+  app_updater.checkForUpdates();
+  app_updater.on('update-available', event => {
+    app_updater.logger.info('update-available')
+    app_updater.downloadUpdate();
+  })
+  app_updater.on('update-not-available', event => {
+    app_updater.logger.info('update-not-available')
+  })
+  app_updater.on('download-progress', event => {
+    app_updater.logger.info('download-progress')
+  })
+  app_updater.on('update-downloaded', event => {
+    app_updater.logger.info('update-downloaded')
+    app_updater.quitAndInstall();
+  })
+}
+
+//const app_updater = new AppUpdater()
+function createWindow () {
+  // Create the browser window.
+  const win = new BrowserWindow({
+    width: 1920,
+    height: 1080,
+    icon: __dirname + 'icon.ico',
+    webPreferences: {
+      nodeIntegration: true,
+      enableRemoteModule: true,
+      contextIsolation: false,
+    }
+  })
+  if (DEBUG) {
+    win.loadURL(`http://localhost:3000`);
+  } else {
+    win.loadFile(path.join(__dirname, 'index.html'));
+  }
+}
+//load the index.html from a url
+if(!DEBUG){
+  let pyshell = new PythonShell(process.resourcesPath + '/metin_local_websocket_server/_websocket.py');
+
+  pyshell.on('message', function(message) {
+    console.log(message);
+  })
+  pyshell.end(function (err) {
+    if (err){
+      throw err;
+    };
+  })
+}
+
+
+
+
+
+
+
+// This method will be called when Electron has finished
+// initialization and is ready to create browser windows.
+// Some APIs can only be used after this event occurs.
+app.whenReady().then(
+  createWindow
+)
+
+// Quit when all windows are closed, except on macOS. There, it's common
+// for applications and their menu bar to stay active until the user quits
+// explicitly with Cmd + Q.
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit()
+  }
+})
+
+app.on('activate', () => {
+  // On macOS it's common to re-create a window in the app when the
+  // dock icon is clicked and there are no other windows open.
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow()
+  }
+})
+
+ipcMain.on('app_version', event => {
+  event.sender.send('app_version', {version: app.getVersion()})
+})
+//app_updater.logger.info(app.getVersion())
+
+// In this file you can include the rest of your app's specific main process
+// code. You can also put them in
