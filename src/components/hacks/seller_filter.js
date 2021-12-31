@@ -1,0 +1,242 @@
+import { FormControlLabel, Grid, ListItem, Typography, MenuItem } from '@material-ui/core'
+import React                                            from 'react'
+import { FixedSizeList, shouldComponentUpdate }         from 'react-window'
+import store                                            from '../../store'
+import { ACTIONS, TYPES_TO_STRING, ITEM_TYPES }                                      from '../../utils/enums.js'
+import { HackbarCheckbox, HackbarTextField, HackbarSelect }            from '../hackbar_style/hackbar_style.js'
+import FileHandler                                      from "./file_handler";
+import './pickup_filter.css'
+
+class SellerFilter extends React.Component {
+    constructor( props ) {
+        super(props)
+        this.state = {
+            item_types_to_show: 'ALL',
+            show_only_checked: false,
+            show_only_unchecked: false,
+            item_filter: '',
+            items_to_show: [],
+        }
+        this.shouldComponentUpdate = shouldComponentUpdate.bind(this)
+    }
+
+    componentDidMount = () => {
+        this.onReceivePickupFilter()
+
+    }
+
+    render_item_filter = ( props ) => {
+        const { index, style } = props;
+
+        let item = this.props.item_data[this.state.items_to_show[index]]
+        console.log(item)
+        let checked = false
+        if ( this.props.pickup_filter.includes(parseInt(this.state.items_to_show[index])) ) {
+            checked = true
+        }
+        return (
+            <div className='item'>
+                <ListItem button key={ index } style={ style }>
+                    <img
+                        src={ 'https://metin2cms.cf/items/img/icons/' + item.icon + '.png' }/>
+                    <FormControlLabel control={ <HackbarCheckbox checked={ checked }
+                                                                 onChange={ () => {this.onChangeItemPickup(this.state.items_to_show[index])} }
+                                                                 name="mine"/> } label={ item.name }/>
+                </ListItem>
+            </div>
+        )
+    }
+
+    onChangeItemPickup = ( item_id ) => {
+        if ( this.props.pickup_filter.includes(item_id) ) {
+            let _module = {
+                ItemsToSell: this.props.pickup_filter.filter(( item ) => item !== item_id)
+            }
+            store.dispatch({
+                type: ACTIONS.UPDATE_ONE_HACK_MODULE,
+                client: this.props.socket,
+                payload: { module_dict: _module, module_name: 'FarmBot' },
+                index: store.getState().receivePacketsReducer.selected_client_id
+            })
+            this.forceUpdate()
+        } else {
+            let new_pickup_filter = this.props.pickup_filter
+            new_pickup_filter.push(item_id)
+            let _module = {
+                ItemsToSell: new_pickup_filter
+            }
+            store.dispatch({
+                type: ACTIONS.UPDATE_ONE_HACK_MODULE,
+                client: this.props.socket,
+                payload: { module_dict: _module, module_name: 'FarmBot' },
+                index: store.getState().receivePacketsReducer.selected_client_id
+            })
+            this.forceUpdate()
+        }
+
+    }
+
+    switchShowOnlyChecked = () => {
+        this.setState({
+            ...this.state,
+            show_only_checked: !this.state.show_only_checked,
+            show_only_unchecked: false,
+        }, this.onReceivePickupFilter)
+
+    }
+
+    switchShowOnlyUnchecked = () => {
+        this.setState({
+            ...this.state,
+            show_only_checked: false,
+            show_only_unchecked: !this.state.show_only_unchecked,
+
+        }, this.onReceivePickupFilter)
+    }
+
+    onPickupFilterChange = ( event ) => {
+
+        this.setState({
+            ...this.state,
+            item_filter: event.target.value
+        }, this.onReceivePickupFilter)
+    }
+
+    onReceivePickupFilter = () => {
+        
+        if ( this.props.pickup_filter ) {
+            let items_to_show = []
+
+            Object.keys(this.props.item_data).forEach(item => {
+                try{
+                    if(this.state.item_types_to_show === 'ALL'){
+                        if ( this.state.show_only_checked ) {
+                            if ( this.props.pickup_filter.includes(parseInt(item)) ) {
+                                if ( this.props.item_data[item].name.includes(this.state.item_filter) ) {
+                                    items_to_show.push(parseInt(item))
+                                }
+                            }
+                        }
+                        else if ( this.state.show_only_unchecked ) {
+                            if ( !this.props.pickup_filter.includes(parseInt(item)) ) {
+                                if ( this.props.item_data[item].name.includes(this.state.item_filter) ) {
+                                    items_to_show.push(parseInt(item))
+                                }
+                            } 
+                        }
+                        else {
+                            try{
+                                if ( this.props.item_data[item].name.includes(this.state.item_filter) ) {
+                                    items_to_show.push(parseInt(item))
+                                }
+                            } catch(error){
+                                console.log(error)
+                            }
+                        }
+                    }
+                    else{
+                        if(TYPES_TO_STRING[this.props.item_data[item].type] === this.state.item_types_to_show){
+                            console.log(parseInt(item))
+                            if ( this.state.show_only_checked ) {
+                                if ( this.props.pickup_filter.includes(parseInt(item)) ) {
+                                    if ( this.props.item_data[item].name.includes(this.state.item_filter) ) {
+                                        items_to_show.push(parseInt(item))
+                                    }
+                                }
+                            }
+                            else if ( this.state.show_only_unchecked ) {
+                                if ( !this.props.pickup_filter.includes(parseInt(item)) ) {
+                                    if ( this.props.item_data[item].name.includes(this.state.item_filter) ) {
+                                        items_to_show.push(parseInt(item))
+                                    }
+                                } 
+                            }
+                            else {
+                                try{
+                                    if ( this.props.item_data[item].name.includes(this.state.item_filter) ) {
+                                        items_to_show.push(parseInt(item))
+                                    }
+                                } catch(error){
+                                    console.log(error)
+                                }
+                            }
+                        }
+                    }
+            } catch(error){
+                console.log(item)
+            }})
+            this.setState({
+                ...this.state,
+                items_to_show: items_to_show
+            })
+        }
+
+    }
+
+    render = () => {
+        let input_label_text = this.props.language.label_item_filter
+        let label_item_filter_helper = this.props.language.label_item_filter_helper
+        console.log(this.props)
+        return (
+            <>
+                <Grid item xs={ 12 } className='pickup-filter-header'>
+                    <Typography> { this.props.language.pickup_list } </Typography>
+                </Grid>
+                <Grid item xs={ 6 }>
+                    <FormControlLabel control={ <HackbarCheckbox checked={ this.state.show_only_checked }
+                                                                 onChange={ () => {this.switchShowOnlyChecked()} }
+                                                                 name="mine"/> }
+                                      label={ this.props.language.show_only_checked }/>
+                </Grid>
+                <Grid item xs={ 6 }>
+                    <FormControlLabel control={ <HackbarCheckbox checked={ this.state.show_only_unchecked }
+                                                                 onChange={ () => {this.switchShowOnlyUnchecked()} }
+                                                                 name="mine"/> }
+                                      label={ this.props.language.show_only_unchecked }/>
+                </Grid>
+                <Grid item xs={12}>
+                    <HackbarSelect
+                        fullWidth
+                        value={this.state.item_types_to_show}
+                        onChange={ (event) => {
+                            this.setState({...this.state, item_types_to_show: event.target.value}, this.onReceivePickupFilter)
+                        }}
+                    >
+                        <MenuItem value={'ALL'}> {this.props.language['ALL']} </MenuItem>
+                        {
+                            Object.keys(ITEM_TYPES).map( key => {
+                                return(<MenuItem value={key}> {this.props.language[key]} </MenuItem>)
+                            })
+                        }
+
+                    </HackbarSelect>
+                </Grid>
+                <Grid item xs={ 12 }>
+                    <HackbarTextField helperText={ label_item_filter_helper } label={ input_label_text } type='text'
+                                      onKeyDown={ e => e.stopPropagation() }
+                                      onChange={ this.onPickupFilterChange } value={ this.state.item_filter }
+                                      defaultValue={ this.state.item_filter }
+                                      fullWidth={ true } margin={ 'dense' }/>
+                </Grid>
+                <Grid item xs={ 12 }>
+                    <FixedSizeList height={ 200 } width={ '100%' } itemSize={ 40 }
+                                   itemCount={ this.state.items_to_show.length }
+                                   onChange={ () => this.shouldComponentUpdate() }>
+                        { this.render_item_filter }
+                    </FixedSizeList>
+                </Grid>
+                <Grid item xs={ 12 }>
+                    <FileHandler socket={ this.props.socket } pickup_filter
+                                 language={ this.props.file_handler_language }/>
+                </Grid>
+            </>
+        )
+    }
+}
+
+export default SellerFilter
+
+
+
+
+
